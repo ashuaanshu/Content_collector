@@ -1,66 +1,95 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
+import requests
+import time
 import streamlit as st
-from scraperr import scrape_with_bs4, scrape_with_selenium
 
-def copy_button(text):
-    copy_code = f"""
-    <script>
-    function copyToClipboard() {{
-        navigator.clipboard.writeText(`{text}`);
-        alert("✅ Copied to clipboard!");
-    }}
-    </script>
-    <button onclick="copyToClipboard()">📋 Copy All</button>
-    """
-    st.markdown(copy_code, unsafe_allow_html=True)
 
+def extract_main_content(soup):
+    content = {}
+
+    # Title
+    page_title = soup.title.string if soup.title else "No title"
+    headings = [h.get_text(strip=True) for h in soup.find_all(['h1', 'h2'])]
+
+    # Paragraphs
+    paragraphs = [p.get_text(strip=True) for p in soup.find_all('p')]
+
+    # Spans
+    spans = [span.get_text(strip=True) for span in soup.find_all('span')]
+
+    # Bold text
+    bolds = [b.get_text(strip=True) for b in soup.find_all(['b', 'strong'])]
+
+    content['title'] = page_title
+    content['headings'] = headings
+    content['paragraphs'] = paragraphs
+    content['spans'] = spans
+    content['bolds'] = bolds
+
+    return content
+
+
+def scrape_with_bs4(url):
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        return extract_main_content(soup)
+    except Exception as e:
+        return {"error": f"❌ Error: {e}"}
+
+
+def scrape_with_selenium(url):
+    try:
+        options = Options()
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        driver = webdriver.Chrome(options=options)
+        driver.get(url)
+        time.sleep(3)
+        html = driver.page_source
+        driver.quit()
+
+        soup = BeautifulSoup(html, 'html.parser')
+        return extract_main_content(soup)
+    except Exception as e:
+        return {"error": f"❌ Error: {e}"}
+
+
+# Streamlit App
 def main_content_scraper():
-    st.set_page_config(page_title="🧠 Main Content Scraper", layout="wide")
-    st.title("📄 Main Content Scraper")
+    st.title("🔍 Web Content Extractor")
 
-    url = st.text_input("🔗 Enter Website URL:")
-    use_selenium = st.toggle("Use Selenium (for dynamic sites)")
+    url = st.text_input("Enter URL to scrape:")
+    method = st.radio("Choose scraping method:", ["BeautifulSoup", "Selenium"])
 
-    if st.button("Scrape Content"):
+    if st.button("Scrape Now"):
         if url:
-            with st.spinner("🔍 Scraping... Please wait..."):
-                result = scrape_with_selenium(url) if use_selenium else scrape_with_bs4(url)
+            if method == "BeautifulSoup":
+                result = scrape_with_bs4(url)
+            else:
+                result = scrape_with_selenium(url)
 
             if "error" in result:
                 st.error(result["error"])
             else:
-                all_text = ""
+                # Convert dict to formatted text
+                quer = f"Title: {result['title']}\n\n"
+                quer += f"Headings: {result['headings']}\n\n"
+                quer += f"Paragraphs: {result['paragraphs']}\n\n"
+                quer += f"Spans: {result['spans']}\n\n"
+                quer += f"Bold Text: {result['bolds']}\n\n"
 
-                st.subheader("📝 Title")
-                st.write(result["title"])
-                all_text += f"Title: {result['title']}\n\n"
+                st.subheader("✅ Extracted Content")
+                st.text_area("Result", quer, height=300)
 
-                st.subheader("🔠 Headings")
-                for h in result["headings"]:
-                    st.markdown(f"- {h}")
-                    all_text += f"Heading: {h}\n"
-
-                st.subheader("📄 Paragraphs")
-                for p in result["paragraphs"]:
-                    st.markdown(f"> {p}")
-                    all_text += f"{p}\n\n"
-
-                st.subheader("🔤 Span Text")
-                for s in result["spans"]:
-                    st.text(s)
-                    all_text += f"Span: {s}\n"
-
-                st.subheader("🔡 Bold Text")
-                for b in result["bolds"]:
-                    st.markdown(f"**{b}**")
-                    all_text += f"Bold: {b}\n"
-
-                st.divider()
-                st.subheader("📋 Copy All Text")
-                st.text_area("Scraped Content:", all_text, height=300)
-                copy_button(all_text)   # ✅ सिर्फ यही copy करेगा
-
+                # Download button
+                st.download_button("⬇️ Download Result", quer, file_name="scraped_content.txt")
         else:
-            st.warning("Please enter a valid URL.")
+            st.warning("Please enter a URL.")
+
 
 if __name__ == "__main__":
     main_content_scraper()
