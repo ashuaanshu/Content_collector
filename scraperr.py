@@ -1,37 +1,31 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
-import requests
-import time
-
+import requests, time
 
 def extract_main_content(soup):
-    content = {}
+    parts = []
 
-    # Title
-    page_title = soup.title.string if soup.title else "No title"
-    headings = [h.get_text(strip=True) for h in soup.find_all(['h1', 'h2'])]
+    if soup.title:
+        parts.append(f"TITLE: {soup.title.string.strip()}")
 
-    # Images
-    images = [img['src'] for img in soup.find_all('img') if img.get('src')]
+    headings = [h.get_text(strip=True) for h in soup.find_all(['h1','h2'])]
+    if headings:
+        parts.append("HEADINGS:\n" + "\n".join(headings))
 
-    # Paragraphs
     paragraphs = [p.get_text(strip=True) for p in soup.find_all('p')]
+    if paragraphs:
+        parts.append("PARAGRAPHS:\n" + "\n".join(paragraphs))
 
-    # Spans
     spans = [span.get_text(strip=True) for span in soup.find_all('span')]
+    if spans:
+        parts.append("SPANS:\n" + "\n".join(spans))
 
-    # Bold text
-    bolds = [b.get_text(strip=True) for b in soup.find_all(['b', 'strong'])]
+    bolds = [b.get_text(strip=True) for b in soup.find_all(['b','strong'])]
+    if bolds:
+        parts.append("BOLDS:\n" + "\n".join(bolds))
 
-    content['title'] = page_title
-    content['headings'] = headings
-    content['images'] = images
-    content['paragraphs'] = paragraphs
-    content['spans'] = spans
-    content['bolds'] = bolds
-
-    return content
+    return "\n\n".join(parts)
 
 
 def scrape_with_bs4(url):
@@ -41,14 +35,18 @@ def scrape_with_bs4(url):
         soup = BeautifulSoup(response.text, 'html.parser')
         return extract_main_content(soup)
     except Exception as e:
-        return {"error": f"❌ Error: {e}"}
+        return f"❌ Error: {e}"
 
 
 def scrape_with_selenium(url):
     try:
         options = Options()
-        options.add_argument("--headless")
+        options.add_argument("--headless=new")
         options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+
         driver = webdriver.Chrome(options=options)
         driver.get(url)
         time.sleep(3)
@@ -58,4 +56,4 @@ def scrape_with_selenium(url):
         soup = BeautifulSoup(html, 'html.parser')
         return extract_main_content(soup)
     except Exception as e:
-        return {"error": f"❌ Error: {e}"}
+        return f"❌ Error: {e}"
