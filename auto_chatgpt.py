@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-import pyperclip
+# import pyperclipz
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -22,8 +22,8 @@ def run_auto_chatgpt_app():
             return
 
         quer = f"{query}\n\n+ {content}"
-        pyperclip.copy(quer)
-        st.info("🌀 Launching Chrome...")
+        # pyperclip.copy(quer)
+        st.info("🌀 Starting Server...")
 
         options = webdriver.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
@@ -36,6 +36,12 @@ def run_auto_chatgpt_app():
             # Paste input
             textarea = driver.find_element(By.XPATH, "//textarea[@id='chat-input']")
             textarea.click()
+            driver.execute_script(f"""
+            navigator.clipboard.writeText(`{quer}`).then(function() {{
+                console.log("Text copied to clipboard");
+            }});
+            """)
+            # textarea.send_keys(quer)
             textarea.send_keys(Keys.CONTROL, 'v')
             time.sleep(1)
             textarea.send_keys(Keys.ENTER)
